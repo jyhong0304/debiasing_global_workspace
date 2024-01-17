@@ -217,7 +217,34 @@ cifar10c
 DATA_PATH
 ```
 
-- 5.0pct: Will be posted soon :)
+- 5.0pct: 50.7 (LDD) VS ***51.4*** (DGW)
+```python
+python train.py
+--dataset
+cifar10c
+--exp=cifar10c_5.0_DuoCCT
+--lr=0.001
+--percent=5pct
+--curr_step=10000
+--lambda_swap=1.
+--lambda_dis_align=1
+--lambda_swap_align=1
+--lr_decay_step=10000
+--lr_gamma=0.5
+--lr_cct=0.0001
+--num_steps=50000
+--use_lr_decay
+--rep_alpha=0.5
+--seed=0
+--n_concepts=10
+--n_iters=2
+--lambda_ent=0.01
+--train_dcct
+--tensorboard
+--wandb
+--data_dir
+DATA_PATH
+```
 
 
 ### BFFHQ
