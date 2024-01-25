@@ -181,7 +181,7 @@ class Learner(object):
         return accs
 
     # evaluation code for ours
-    def evaluate_ours(self, model_b, model_l, data_loader, model='label'):
+    def evaluate_lfa(self, model_b, model_l, data_loader, model='label'):
         model_b.eval()
         model_l.eval()
 
@@ -223,8 +223,8 @@ class Learner(object):
 
         return accs
 
-    def evaluate_cct(self, model_l, data_loader, model='label'):
-        # model_b.eval()
+    def evaluate_dgw(self, model_b, model_l, data_loader, model='label'):
+        model_b.eval()
         model_l.eval()
 
         total_correct, total_num = 0, 0
@@ -238,18 +238,29 @@ class Learner(object):
             with torch.no_grad():
                 if self.args.dataset == 'cmnist':
                     z_l = model_l.extract(data)
-                    # z_b = model_b.extract(data)
-                    # z_origin = torch.cat((z_l, z_b), dim=1)
-                    # if model == 'bias':
-                    #     pred_label, _, _, _ = model_b.fc(z_origin)
-                    # else:
-                    pred_label, _, _, _ = model_l.fc(z_l)
+                    z_b = model_b.extract(data)
+                else:
+                    z_l, z_b = [], []
+                    hook_fn = self.model_l.avgpool.register_forward_hook(self.concat_dummy(z_l))
+                    _ = self.model_l(data)
+                    hook_fn.remove()
+                    z_l = z_l[0]
+                    hook_fn = self.model_b.avgpool.register_forward_hook(self.concat_dummy(z_b))
+                    _ = self.model_b(data)
+                    hook_fn.remove()
+                    z_b = z_b[0]
+                z_origin = torch.cat((z_l, z_b), dim=1)
+                if model == 'bias':
+                    pred_label = model_b.fc(z_origin)
+                else:
+                    pred_label = model_l.fc(z_origin)
                 pred = pred_label.data.max(1, keepdim=True)[1].squeeze(1)
                 correct = (pred == label).long()
                 total_correct += correct.sum()
                 total_num += correct.shape[0]
 
         accs = total_correct / float(total_num)
+        model_b.train()
         model_l.train()
 
         return accs
@@ -268,7 +279,7 @@ class Learner(object):
             torch.save(state_dict, f)
         print(f'{step} model saved ...')
 
-    def save_ours(self, step, best=None):
+    def save_lfa(self, step, best=None):
         if best:
             model_path = os.path.join(self.result_dir, "best_model_l.th")
         else:
@@ -320,6 +331,32 @@ class Learner(object):
         with open(model_path, "wb") as f:
             torch.save(state_dict, f)
 
+        # JYH: Save two GWSs as well.
+        # GW1
+        if best:
+            model_path = os.path.join(self.result_dir, "best_model_gw_1.th".format(step))
+        else:
+            model_path = os.path.join(self.result_dir, "model_gw_1_{}.th".format(step))
+        state_dict = {
+            'steps': step,
+            'state_dict': self.model_gw_1.state_dict(),
+            'optimizer': self.optimizer_gw_1.state_dict(),
+        }
+        with open(model_path, "wb") as f:
+            torch.save(state_dict, f)
+        # GW2
+        if best:
+            model_path = os.path.join(self.result_dir, "best_model_gw_2.th".format(step))
+        else:
+            model_path = os.path.join(self.result_dir, "model_gw_2_{}.th".format(step))
+        state_dict = {
+            'steps': step,
+            'state_dict': self.model_gw_2.state_dict(),
+            'optimizer': self.optimizer_gw_2.state_dict(),
+        }
+        with open(model_path, "wb") as f:
+            torch.save(state_dict, f)
+
         print(f'{step} model saved ...')
 
     def board_vanilla_loss(self, step, loss_b):
@@ -331,8 +368,8 @@ class Learner(object):
         if self.args.tensorboard:
             self.writer.add_scalar(f"loss/loss_b_train", loss_b, step)
 
-    def board_ours_loss(self, step, loss_dis_conflict, loss_dis_align, loss_swap_conflict, loss_swap_align,
-                        lambda_swap):
+    def board_lfa_loss(self, step, loss_dis_conflict, loss_dis_align, loss_swap_conflict, loss_swap_align,
+                       lambda_swap):
 
         if self.args.wandb:
             wandb.log({
@@ -384,10 +421,10 @@ class Learner(object):
             self.writer.add_scalar(f"acc/best_acc_b_valid", self.best_valid_acc_b, step)
             self.writer.add_scalar(f"acc/best_acc_b_test", self.best_test_acc_b, step)
 
-    def board_ours_acc(self, step, inference=None):
+    def board_lfa_acc(self, step, inference=None):
         # check label network
-        valid_accs_d = self.evaluate_ours(self.model_b, self.model_l, self.valid_loader, model='label')
-        test_accs_d = self.evaluate_ours(self.model_b, self.model_l, self.test_loader, model='label')
+        valid_accs_d = self.evaluate_lfa(self.model_b, self.model_l, self.valid_loader, model='label')
+        test_accs_d = self.evaluate_lfa(self.model_b, self.model_l, self.test_loader, model='label')
         if inference:
             print(f'test acc: {test_accs_d.item()}')
             import sys
@@ -397,7 +434,42 @@ class Learner(object):
             self.best_valid_acc_d = valid_accs_d
         if test_accs_d >= self.best_test_acc_d:
             self.best_test_acc_d = test_accs_d
-            self.save_ours(step, best=True)
+            self.save_lfa(step, best=True)
+
+        if self.args.wandb:
+            wandb.log({
+                "acc_d_valid": valid_accs_d,
+                "acc_d_test": test_accs_d,
+            },
+                step=step, )
+            wandb.log({
+                "best_acc_d_valid": self.best_valid_acc_d,
+                "best_acc_d_test": self.best_test_acc_d,
+            },
+                step=step, )
+
+        if self.args.tensorboard:
+            self.writer.add_scalar(f"acc/acc_d_valid", valid_accs_d, step)
+            self.writer.add_scalar(f"acc/acc_d_test", test_accs_d, step)
+            self.writer.add_scalar(f"acc/best_acc_d_valid", self.best_valid_acc_d, step)
+            self.writer.add_scalar(f"acc/best_acc_d_test", self.best_test_acc_d, step)
+
+        print(f'valid_d: {valid_accs_d} || test_d: {test_accs_d} ')
+
+    def board_dgw_acc(self, step, inference=None):
+        # check label network
+        valid_accs_d = self.evaluate_dgw(self.model_b, self.model_l, self.valid_loader, model='label')
+        test_accs_d = self.evaluate_dgw(self.model_b, self.model_l, self.test_loader, model='label')
+        if inference:
+            print(f'test acc: {test_accs_d.item()}')
+            import sys
+            sys.exit(0)
+
+        if valid_accs_d >= self.best_valid_acc_d:
+            self.best_valid_acc_d = valid_accs_d
+        if test_accs_d >= self.best_test_acc_d:
+            self.best_test_acc_d = test_accs_d
+            self.save_dgw(step, best=True)
 
         if self.args.wandb:
             wandb.log({
@@ -470,7 +542,7 @@ class Learner(object):
                 epoch += 1
                 cnt = 0
 
-    def train_ours(self, args):
+    def train_lfa(self, args):
         epoch, cnt = 0, 0
         print('************** main training starts... ************** ')
         train_num = len(self.train_dataset)
@@ -648,12 +720,12 @@ class Learner(object):
                 print(f"self.optimizer_l lr: {self.optimizer_l.param_groups[-1]['lr']}")
 
             if step % args.save_freq == 0:
-                self.save_ours(step)
+                self.save_lfa(step)
 
             if step % args.log_freq == 0:
                 bias_label = attr[:, 1]
                 align_flag = torch.where(label == bias_label)[0]
-                self.board_ours_loss(
+                self.board_lfa_loss(
                     step=step,
                     loss_dis_conflict=loss_dis_conflict.mean(),
                     loss_dis_align=args.lambda_dis_align * loss_dis_align.mean(),
@@ -663,7 +735,7 @@ class Learner(object):
                 )
 
             if step % args.valid_freq == 0:
-                self.board_ours_acc(step)
+                self.board_lfa_acc(step)
 
             cnt += data.shape[0]
             if cnt == train_num:
@@ -915,7 +987,7 @@ class Learner(object):
             if step % args.log_freq == 0:
                 bias_label = attr[:, 1]
                 align_flag = torch.where(label == bias_label)[0]
-                self.board_ours_loss(
+                self.board_lfa_loss(
                     step=step,
                     loss_dis_conflict=loss_dis_conflict.mean(),
                     loss_dis_align=args.lambda_dis_align * loss_dis_align.mean(),
@@ -925,7 +997,7 @@ class Learner(object):
                 )
 
             if step % args.valid_freq == 0:
-                self.board_ours_acc(step)
+                self.board_dgw_acc(step)
 
             cnt += data.shape[0]
             if cnt == train_num:
@@ -933,7 +1005,7 @@ class Learner(object):
                 epoch += 1
                 cnt = 0
 
-    def test_ours(self, args):
+    def test_lfa(self, args):
         if args.dataset == 'cmnist':
             self.model_l = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
             self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
@@ -943,7 +1015,19 @@ class Learner(object):
 
         self.model_l.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_l.th'))['state_dict'])
         self.model_b.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_b.th'))['state_dict'])
-        self.board_ours_acc(step=0, inference=True)
+        self.board_lfa_acc(step=0, inference=True)
+
+    def test_dgw(self, args):
+        if args.dataset == 'cmnist':
+            self.model_l = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+        else:
+            self.model_l = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+
+        self.model_l.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_l.th'))['state_dict'])
+        self.model_b.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_b.th'))['state_dict'])
+        self.board_dgw_acc(step=0, inference=True)
 
     def ent_loss(self, probs, eps=1e-8):
         ent = -probs * torch.log(probs + eps)
