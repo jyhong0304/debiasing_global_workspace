@@ -61,6 +61,8 @@ if __name__ == '__main__':
     # Set random seeds
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
     random.seed(args.seed)
 
@@ -80,7 +82,7 @@ if __name__ == '__main__':
     elif args.train_dgw:
         learner.train_dgw(args)
     else:
-        print('choose one of the two options ...')
+        print('choose one of the three options ... (Vanilla, LFA, DGW)')
         import sys
 
         sys.exit(0)
