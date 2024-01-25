@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import random
 from learner import Learner
 import argparse
 
@@ -44,9 +46,9 @@ if __name__ == '__main__':
     parser.add_argument("--tensorboard", action="store_true", help="whether to use tensorboard")
     # experiment
     parser.add_argument("--train_vanilla", action="store_true", help="whether to train vanilla")
-    parser.add_argument("--train_ours", action="store_true", help="whether to train LDD method")
+    parser.add_argument("--train_lfa", action="store_true", help="whether to train LFA method (NeurIPS21)")
     # JYH: Add new arguments
-    parser.add_argument("--train_dgw", action="store_true", help="whether to train Debiasing Global Workspace")
+    parser.add_argument("--train_dgw", action="store_true", help="whether to train Debiasing Global Workspace (Ours)")
     parser.add_argument("--rep_alpha", help="the ratio of representations using GWS", type=float, default=0.7)
     parser.add_argument('--seed', default=1, type=int, help='random seed')
     parser.add_argument("--n_concepts", help='number of concepts', default=10, type=int)
@@ -59,6 +61,8 @@ if __name__ == '__main__':
     # Set random seeds
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     # init learner
     learner = Learner(args)
@@ -68,8 +72,8 @@ if __name__ == '__main__':
         'Official Pytorch Code of "Learning Decomposable Representation within a Debiasing Global Workspace"')
     print('Training starts ...')
 
-    if args.train_ours:
-        learner.train_ours(args)
+    if args.train_lfa:
+        learner.train_lfa(args)
     elif args.train_vanilla:
         learner.train_vanilla(args)
     # JYH: for training Debiasing GW.
