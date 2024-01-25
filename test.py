@@ -68,8 +68,10 @@ if __name__ == '__main__':
     print('Test starts ...')
 
     if args.test_lfa:
+        print('Testing LFA')
         learner.test_lfa(args)
     elif args.test_dgw:
+        print('Testing DGW (ours)')
         learner.test_dgw(args)
     else:
         print('choose one of the two options ... (LFA, DGW)')
