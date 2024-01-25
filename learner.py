@@ -295,33 +295,6 @@ class Learner(object):
 
         print(f'{step} model saved ...')
 
-    def save_cct(self, step, best=None):
-        if best:
-            model_path = os.path.join(self.result_dir, "best_model_l.th")
-        else:
-            model_path = os.path.join(self.result_dir, "model_l_{}.th".format(step))
-        state_dict = {
-            'steps': step,
-            'state_dict': self.model_l.state_dict(),
-            'optimizer': self.optimizer_l.state_dict(),
-        }
-        with open(model_path, "wb") as f:
-            torch.save(state_dict, f)
-
-        if best:
-            model_path = os.path.join(self.result_dir, "best_model_b.th")
-        else:
-            model_path = os.path.join(self.result_dir, "model_b_{}.th".format(step))
-        state_dict = {
-            'steps': step,
-            'state_dict': self.model_b.state_dict(),
-            'optimizer': self.optimizer_b.state_dict(),
-        }
-        with open(model_path, "wb") as f:
-            torch.save(state_dict, f)
-
-        print(f'{step} model saved ...')
-
     def save_dcct(self, step, best=None):
         if best:
             model_path = os.path.join(self.result_dir, "best_model_l.th")
