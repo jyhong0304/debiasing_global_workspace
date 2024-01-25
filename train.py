@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument("--train_vanilla", action="store_true", help="whether to train vanilla")
     parser.add_argument("--train_ours", action="store_true", help="whether to train LDD method")
     # JYH: Add new arguments
-    parser.add_argument("--train_dcct", action="store_true", help="whether to train Debiasing CCT")
+    parser.add_argument("--train_dgw", action="store_true", help="whether to train Debiasing Global Workspace")
     parser.add_argument("--rep_alpha", help="the ratio of representations using GWS", type=float, default=0.7)
     parser.add_argument('--seed', default=1, type=int, help='random seed')
     parser.add_argument("--n_concepts", help='number of concepts', default=10, type=int)
@@ -72,9 +72,9 @@ if __name__ == '__main__':
         learner.train_ours(args)
     elif args.train_vanilla:
         learner.train_vanilla(args)
-    # JYH: for training Debiasing CCT
-    elif args.train_dcct:
-        learner.train_dcct(args)
+    # JYH: for training Debiasing GW.
+    elif args.train_dgw:
+        learner.train_dgw(args)
     else:
         print('choose one of the two options ...')
         import sys
