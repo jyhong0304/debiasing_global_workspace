@@ -15,7 +15,8 @@ You can download all dataests.
 
 Best test accuracy (%) comparsion between LFA and DGW (ours).
 
---- 
+___
+
 
 ### Colored MNIST - 0.5pct
 - Performance: 65.7 (LFA) VS ***70.1*** (DGW)
@@ -31,7 +32,6 @@ python train.py --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct
 python test.py --pretrained_path [LFA_MODEL_PATH] --test_lfa --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --data_dir [YOUR_DATA_PATH]
 ```
 
---- 
 
 - DGW Training Command:
 
