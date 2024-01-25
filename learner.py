@@ -295,7 +295,7 @@ class Learner(object):
 
         print(f'{step} model saved ...')
 
-    def save_dcct(self, step, best=None):
+    def save_dgw(self, step, best=None):
         if best:
             model_path = os.path.join(self.result_dir, "best_model_l.th")
         else:
@@ -671,7 +671,7 @@ class Learner(object):
                 epoch += 1
                 cnt = 0
 
-    def train_dcct(self, args):
+    def train_dgw(self, args):
         epoch, cnt = 0, 0
         print('************** main training starts... ************** ')
         train_num = len(self.train_dataset)
@@ -910,7 +910,7 @@ class Learner(object):
                 print(f"self.optimizer_gw_2 lr: {self.optimizer_gw_2.param_groups[-1]['lr']}")
 
             if step % args.save_freq == 0:
-                self.save_dcct(step)
+                self.save_dgw(step)
 
             if step % args.log_freq == 0:
                 bias_label = attr[:, 1]
