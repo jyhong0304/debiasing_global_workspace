@@ -2,8 +2,10 @@
 
 This is the official implementation of Debiasing Global Workspace (DGW).
 
-## Requirments
+## Environment Setup
 ```python
+conda create --name py38KD python=3.8
+conda activate py38KD
 pip install -r requirements.txt
 ```
 
