@@ -25,26 +25,26 @@ ___
 - LFA Training Command:
 
 ```python
-python train.py --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH] 
+python3 train.py --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH] 
 ```
 
 - LFA Test Command:
 
 ```python
-python test.py --pretrained_path [LFA_MODEL_PATH] --test_lfa --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --data_dir [YOUR_DATA_PATH]
+python3 test.py --pretrained_path [LFA_MODEL_PATH] --test_lfa --dataset cmnist --exp=cmnist_0.5_LFA --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --data_dir [YOUR_DATA_PATH]
 ```
 
 
 - DGW Training Command:
 
 ```python
-python train.py --dataset cmnist --exp=cmnist_0.5_DGW --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
+python3 train.py --dataset cmnist --exp=cmnist_0.5_DGW --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
 ```
 
 - DGW Test Command:
 
 ```python
-python test.py --pretrained_path [DGW_MODEL_PATH] --test_dgw --dataset cmnist --exp=cmnist_0.5_DGW --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --data_dir [YOUR_DATA_PATH]
+python3 test.py --pretrained_path [DGW_MODEL_PATH] --test_dgw --dataset cmnist --exp=cmnist_0.5_DGW --lr=0.01 --percent=0.5pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --data_dir [YOUR_DATA_PATH]
 ```
 
 ### Colored MNIST - 1.0pct
@@ -52,13 +52,27 @@ python test.py --pretrained_path [DGW_MODEL_PATH] --test_dgw --dataset cmnist --
 - LFA Training Command:
 
 ```python
-python train.py --dataset cmnist --exp=cmnist_1.0_LFA --lr=0.01 --percent=1pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH]
+python3 train.py --dataset cmnist --exp=cmnist_1.0_LFA --lr=0.01 --percent=1pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH]
 ```
 
 - DGW Training Command:
 
 ```python
-python train.py --dataset cmnist --exp=cmnist_1.0_DGW --lr=0.01 --percent=1pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
+python3 train.py --dataset cmnist --exp=cmnist_1.0_DGW --lr=0.01 --percent=1pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
+```
+
+### Colored MNIST - 2.0pct
+- Performance: 84.2 (LFA) VS ***85.6*** (DGW)
+- LFA Training Command:
+
+```python
+python3 train.py --dataset cmnist --exp=cmnist_2.0_LFA --lr=0.01 --percent=2pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH]
+```
+
+- DGW Training Command:
+
+```python
+python3 train.py --dataset cmnist --exp=cmnist_2.0_DGW --lr=0.01 --percent=2pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
 ```
 
 
