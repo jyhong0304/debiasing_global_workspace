@@ -75,6 +75,20 @@ python3 train.py --dataset cmnist --exp=cmnist_2.0_LFA --lr=0.01 --percent=2pct 
 python3 train.py --dataset cmnist --exp=cmnist_2.0_DGW --lr=0.01 --percent=2pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=2 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
 ```
 
+### Colored MNIST - 5.0pct
+- Performance: 85.2 (LFA) VS ***88.6*** (DGW)
+- LFA Training Command:
+
+```python
+python3 train.py --dataset cmnist --exp=cmnist_5.0_LFA --lr=0.01 --percent=5pct --curr_step=10000 --lambda_swap=1 --lambda_dis_align=10 --lambda_swap_align=10 --use_lr_decay --lr_decay_step=10000 --lr_gamma=0.5 --seed=0 --train_lfa --wandb --data_dir [YOUR_DATA_PATH]
+```
+
+- DFA Training Command:
+
+```python
+python3 train.py --dataset cmnist --exp=cmnist_5.0_DGW --lr=0.01 --percent=5pct --curr_step=10000 --lambda_swap=1. --lambda_dis_align=10 --lambda_swap_align=10 --lr_decay_step=10000 --lr_gamma=0.8 --lr_cct=0.001 --num_steps=50000 --use_lr_decay --rep_alpha=0.5 --seed=0 --n_concepts=10 --n_iters=1 --lambda_ent=0.01 --train_dgw --wandb --data_dir [YOUR_DATA_PATH]
+```
+
 
 [//]: # ()
 [//]: # (- 1.0pct: 77.1 &#40;LDD&#41; VS ***80.8*** &#40;DGW&#41;)
