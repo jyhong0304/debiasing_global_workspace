@@ -215,3 +215,23 @@ def gru_cell(input_size, hidden_size, bias=True):
         nn.init.zeros_(m.bias_hh)
 
     return m
+
+class MLP_generator(nn.Module):
+    def __init__(self, in_feature):
+        super(MLP_generator, self).__init__()
+        self.decoder = nn.Sequential(
+            nn.Linear(in_feature, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 3*28*28),
+            nn.ReLU()
+        )
+        self.final_activation = nn.Tanh()
+
+    def forward(self, x):
+        x = self.decoder(x)
+        x = self.final_activation(x)
+        # Optionally, you can reshape the output to (Batch, Channels, Height, Width)
+        # x = x.view(-1, 3, 28, 28)
+        return x

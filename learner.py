@@ -12,13 +12,17 @@ from data.util import get_dataset, IdxDataset
 from module.loss import GeneralizedCELoss
 from module.util import get_model
 from util import EMA
+import random
+import torchvision.utils as vutils
 
 
 class Learner(object):
     def __init__(self, args):
         data2model = {'cmnist': "MLP",
                       'cifar10c': "ResNet18",
-                      'bffhq': "ResNet18"}
+                      'bffhq': "ResNet18",
+                      'dgw_generator': 'autoregressor'
+                      }
 
         data2batch_size = {'cmnist': 256,
                            'cifar10c': 256,
@@ -30,7 +34,7 @@ class Learner(object):
 
         if args.wandb:
             import wandb
-            wandb.init(project='Debiasing-Global-Workspace')
+            wandb.init(project='Debiasing-Global-Workspace', name=args.exp if not args.dgw_generator_training else args.exp + '_dgw_generator')
             wandb.run.name = args.exp
 
         run_name = args.exp
@@ -99,6 +103,15 @@ class Learner(object):
         self.num_classes = attr_dims[0]
         self.train_dataset = IdxDataset(self.train_dataset)
 
+        # # JYH: Reproducibility for dataloader
+        # def seed_worker(worker_id):
+        #     worker_seed = torch.initial_seed() % 2 ** 32
+        #     np.random.seed(worker_seed)
+        #     random.seed(worker_seed)
+        #
+        # g = torch.Generator()
+        # g.manual_seed(args.seed)
+
         # make loader
         self.train_loader = DataLoader(
             self.train_dataset,
@@ -106,7 +119,9 @@ class Learner(object):
             shuffle=True,
             num_workers=args.num_workers,
             pin_memory=True,
-            drop_last=True
+            drop_last=True,
+            # worker_init_fn=seed_worker,
+            # generator=g,
         )
 
         self.valid_loader = DataLoader(
@@ -115,6 +130,8 @@ class Learner(object):
             shuffle=True,
             num_workers=args.num_workers,
             pin_memory=True,
+            # worker_init_fn=seed_worker,
+            # generator=g,
         )
 
         self.test_loader = DataLoader(
@@ -123,11 +140,21 @@ class Learner(object):
             shuffle=True,
             num_workers=args.num_workers,
             pin_memory=True,
+            # worker_init_fn=seed_worker,
+            # generator=g,
         )
 
         # define model and optimizer
         self.model_b = get_model(self.model, attr_dims[0]).to(self.device)
         self.model_d = get_model(self.model, attr_dims[0]).to(self.device)
+
+        if args.dgw_generator_training:
+            self.model_generator = get_model(data2model['dgw_generator'], None).to(self.device)
+            self.optimizer_generator = torch.optim.Adam(
+                self.model_generator.parameters(),
+                lr=args.lr,
+            )
+            self.dgw_generator_criterion = nn.MSELoss()
 
         self.optimizer_b = torch.optim.Adam(
             self.model_b.parameters(),
@@ -147,6 +174,9 @@ class Learner(object):
 
         print(f'self.criterion: {self.criterion}')
         print(f'self.bias_criterion: {self.bias_criterion}')
+
+        if args.dgw_generator_training:
+            print(f'self.dgw_generator_criterion: {self.dgw_generator_criterion}')
 
         self.sample_loss_ema_b = EMA(torch.LongTensor(train_target_attr), num_classes=self.num_classes,
                                      alpha=args.ema_alpha)
@@ -223,6 +253,9 @@ class Learner(object):
 
         return accs
 
+    # Todo: Need to reproduce Table 4 in LFA paper.
+    # 1. Swapping Intrinsic/Bias needs to be implemented.
+    # 1-1. z_swap is needed.
     def evaluate_dgw(self, model_b, model_l, data_loader, model='label'):
         model_b.eval()
         model_l.eval()
@@ -250,9 +283,9 @@ class Learner(object):
                     hook_fn.remove()
                     z_b = z_b[0]
                 z_origin = torch.cat((z_l, z_b), dim=1)
-                if model == 'bias':
+                if model == 'bias':  # Todo: Original Bias in Table 4 in LFA paper?
                     pred_label = model_b.fc(z_origin)
-                else:
+                else:   # Todo: Original Intrinsic in Table 4 in LFA paper?
                     pred_label = model_l.fc(z_origin)
                 pred = pred_label.data.max(1, keepdim=True)[1].squeeze(1)
                 correct = (pred == label).long()
@@ -872,11 +905,17 @@ class Learner(object):
             # Global workspace 1 learns to decompose z_conflict embedding.
             slot_z_conflict, attn_z_conflict = self.model_gw_1(z_conflict)
             # Latent embedding mixup representation for z_conflict.
-            z_conflict = args.rep_alpha * z_conflict + (1 - args.rep_alpha) * slot_z_conflict.squeeze(1)
+            ratio = np.random.beta(args.rep_alpha, args.rep_alpha, 1)[0]
+            # z_conflict = args.rep_alpha * z_conflict + (1 - args.rep_alpha) * slot_z_conflict.squeeze(1)
+            z_conflict = ratio * z_conflict + (1 - ratio) * slot_z_conflict.squeeze(1)
+
             # Global workspace 2 learns to decompose z_align embedding.
             slot_z_align, attn_z_align = self.model_gw_2(z_align)
             # Latent embedding mixup representation for z_align.
-            z_align = args.rep_alpha * z_align + (1 - args.rep_alpha) * slot_z_align.squeeze(1)
+            ratio = np.random.beta(args.rep_alpha, args.rep_alpha, 1)[0]
+            # z_align = args.rep_alpha * z_align + (1 - args.rep_alpha) * slot_z_align.squeeze(1)
+            z_align = ratio * z_align + (1 - ratio) * slot_z_align.squeeze(1)
+
 
             # Prediction using z=[z_l, z_b]
             pred_conflict = self.model_l.fc(z_conflict)
@@ -928,11 +967,16 @@ class Learner(object):
                 # Global workspace 1 learns to decompose z_mix_conflict embedding as well.
                 slot_z_mix_conflict, attn_z_mix_conflict = self.model_gw_1(z_mix_conflict)
                 # Latent embedding mixup representation for z_mix_conflict.
-                z_mix_conflict = args.rep_alpha * z_mix_conflict + (1 - args.rep_alpha) * slot_z_mix_conflict.squeeze(1)
+                ratio = np.random.beta(args.rep_alpha, args.rep_alpha, 1)[0]
+                # z_mix_conflict = args.rep_alpha * z_mix_conflict + (1 - args.rep_alpha) * slot_z_mix_conflict.squeeze(1)
+                z_mix_conflict = ratio * z_mix_conflict + (1 - ratio) * slot_z_mix_conflict.squeeze(1)
+
                 # Global workspace 2 learns to decompose z_mix_align embedding as well.
                 slot_z_mix_align, attn_z_mix_align = self.model_gw_2(z_mix_align)
                 # Latent embedding mixup representation for z_mix_alig.
-                z_mix_align = args.rep_alpha * z_mix_align + (1 - args.rep_alpha) * slot_z_mix_align.squeeze(1)
+                ratio = np.random.beta(args.rep_alpha, args.rep_alpha, 1)[0]
+                # z_mix_align = args.rep_alpha * z_mix_align + (1 - args.rep_alpha) * slot_z_mix_align.squeeze(1)
+                z_mix_align = ratio * z_mix_align + (1 - ratio) * slot_z_mix_align.squeeze(1)
 
                 # Prediction using z_swap
                 pred_mix_conflict = self.model_l.fc(z_mix_conflict)
@@ -985,6 +1029,7 @@ class Learner(object):
                 self.save_dgw(step)
 
             if step % args.log_freq == 0:
+                # Todo: bias_label is here.
                 bias_label = attr[:, 1]
                 align_flag = torch.where(label == bias_label)[0]
                 self.board_lfa_loss(
@@ -1004,6 +1049,93 @@ class Learner(object):
                 print(f'finished epoch: {epoch}')
                 epoch += 1
                 cnt = 0
+
+    def train_dgw_reconstruction(self, args):
+
+        # folde setting
+        self.img_save_dir = os.path.join(self.log_dir, "dgw_recon_images")
+        os.makedirs(self.img_save_dir, exist_ok=True)
+
+        # Train
+        self.model_generator.train()
+
+        # Load model_l, model_b, and model_gw_1 and 2
+        if args.dataset == 'cmnist':
+            self.model_l = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
+                                        num_iterations=args.n_iters).to(self.device)
+            self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
+                                        num_iterations=args.n_iters).to(self.device)
+        else:
+            self.model_l = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+            self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
+                                        num_iterations=args.n_iters).to(self.device)
+            self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
+                                        num_iterations=args.n_iters).to(self.device)
+
+        self.model_l.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_l.th'))['state_dict'])
+        self.model_b.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_b.th'))['state_dict'])
+        self.model_gw_1.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_1.th'))['state_dict'])
+        self.model_gw_2.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_2.th'))['state_dict'])
+        print('Loading the pretrained models done.')
+
+        # Eval Mode
+        self.model_l.eval()
+        self.model_b.eval()
+        self.model_gw_1.eval()
+        self.model_gw_2.eval()
+
+        for step in tqdm(range(args.num_steps)):
+            try:
+                index, data, attr, image_path = next(train_iter)
+            except:  # check lfa is also in this except
+                train_iter = iter(self.train_loader)
+                index, data, attr, image_path = next(train_iter)
+
+            data = data.to(self.device)
+            attr = attr.to(self.device)
+            label = attr[:, args.target_attr_idx].to(self.device)
+
+            # Assuming model_l and model_b return the required 16 channel output directly
+            with torch.no_grad():  # Ensure gradients are not calculated for model_l and model_b
+                output_l = self.model_l.extract(data).detach()  # Detach to prevent gradients from flowing back
+                output_b = self.model_b.extract(data).detach()
+
+            # Concatenate the outputs to form the 32 channel input for the generator
+            gen_input = torch.cat((output_l, output_b), dim=1)
+            # Global workspace 1 learns to decompose output_l
+            slot_output_l, attn_output_l = self.model_gw_1(gen_input)
+            slot_output_b, attn_output_b = self.model_gw_2(gen_input)
+            slot_output = torch.flatten(torch.cat((slot_output_l, slot_output_b), dim=1), start_dim=1)
+
+            self.optimizer_generator.zero_grad()
+            gen_output = self.model_generator(slot_output)
+            target = data.view_as(gen_output)
+            loss = self.dgw_generator_criterion(gen_output, target)  # Define your target accordingly
+            loss.backward()
+            self.optimizer_generator.step()
+            # Log loss to wandb
+            wandb.log({"Generator Loss": loss.item()}, step=step)
+
+            if step % 100 == 0:  # Save sample images every 100 steps
+                # Concatenate original data and generated data
+                gen_output = gen_output.view(-1, 3, 28, 28)  # reshape
+                combined_images = torch.cat((data[:8], gen_output[:8]), dim=0)  # Taking 8 samples for visualization
+                # Make a grid with the first row being original images and the second row being generated images
+                image_grid = vutils.make_grid(combined_images, normalize=True, value_range=(0, 1), scale_each=True,
+                                              nrow=8, padding=2)
+                # Save the grid to a file
+                vutils.save_image(image_grid, os.path.join(self.img_save_dir, f"sample_images_step_{step}.png"))
+                wandb.log({"Generated Images": [wandb.Image(image_grid, caption=f"Step {step}")]}, step=step)
+
+            if step % 5_000 == 0:
+                torch.save(self.model_generator.state_dict(),
+                           os.path.join(self.result_dir, f"generator_step_{step}.th"))
+
+        # save final version
+        torch.save(self.model_generator.state_dict(), os.path.join(self.result_dir, f"generator_step_{step}.th"))
 
     def test_lfa(self, args):
         if args.dataset == 'cmnist':
