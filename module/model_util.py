@@ -26,7 +26,11 @@ class MiniCCTQSA(nn.Module):
 
         # Encoder
         self.in_feature = in_feature
-        self.encoder = nn.Linear(embedding_dim, in_feature * in_feature * embedding_dim)
+        self.encoder = nn.Sequential(
+            nn.Linear(embedding_dim, in_feature * in_feature * embedding_dim),
+            nn.LayerNorm(in_feature * in_feature * embedding_dim)
+
+        )
 
         # Workspace
         self.spatial_concept_slot_attention = ConceptQuerySlotAttention(num_iterations=num_iterations,
@@ -41,7 +45,10 @@ class MiniCCTQSA(nn.Module):
         )
 
         # Decoder
-        self.decoder = nn.Linear(in_feature * in_feature * embedding_dim, embedding_dim)
+        self.decoder = nn.Sequential(
+            nn.Linear(in_feature * in_feature * embedding_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim)
+        )
 
     def forward(self, x, sigma=0):
         if x.dim() < 3:  # this module requires the tensor with the dim_size = 3.
