@@ -8,6 +8,7 @@ import torch.nn.functional as F
 class MiniCCTQSA(nn.Module):
     def __init__(
             self,
+            in_feature=7,
             embedding_dim=768,
             num_heads=2,
             attention_dropout=0.1,
@@ -23,6 +24,11 @@ class MiniCCTQSA(nn.Module):
         self.spatial_concept_slots_init = nn.Embedding(self.n_spatial_concepts, embedding_dim)
         nn.init.xavier_uniform_(self.spatial_concept_slots_init.weight)
 
+        # Encoder
+        self.in_feature = in_feature
+        self.encoder = nn.Linear(embedding_dim, in_feature * in_feature * embedding_dim)
+
+        # Workspace
         self.spatial_concept_slot_attention = ConceptQuerySlotAttention(num_iterations=num_iterations,
                                                                         slot_size=embedding_dim,
                                                                         mlp_hidden_size=embedding_dim)
@@ -34,10 +40,16 @@ class MiniCCTQSA(nn.Module):
             attention_dropout=attention_dropout,
         )
 
+        # Decoder
+        self.decoder = nn.Linear(in_feature * in_feature * embedding_dim, embedding_dim)
+
     def forward(self, x, sigma=0):
         if x.dim() < 3:  # this module requires the tensor with the dim_size = 3.
             x = torch.unsqueeze(x, 1)
 
+        # Encoding
+        x = self.encoder(x).reshape(x.shape[0], self.in_feature * self.in_feature, -1)  # [B, in_feature*in_feature, D]
+        # Global workspace
         mu = self.spatial_concept_slots_init.weight.expand(x.size(0), -1, -1)
         z = torch.randn_like(mu).type_as(x)
         spatial_concept_slots_init = mu + z * sigma * mu.detach()
@@ -45,6 +57,11 @@ class MiniCCTQSA(nn.Module):
                                                                   spatial_concept_slots_init)  # [B, num_concepts, embedding_dim]
         x, spatial_concept_attn = self.spatial_concept_tranformer(x, spatial_concepts)
         spatial_concept_attn = spatial_concept_attn.mean(1)  # average over heads
+        # x: [B, in_feature*in_feature, D]
+        # attn: [B, in_feature*in_feature, n_concepts]
+        # Decoding
+        x = torch.flatten(x, start_dim=1)
+        x = self.decoder(x)
 
         return x, spatial_concept_attn
 
@@ -216,6 +233,7 @@ def gru_cell(input_size, hidden_size, bias=True):
 
     return m
 
+
 class MLP_generator(nn.Module):
     def __init__(self, in_feature):
         super(MLP_generator, self).__init__()
@@ -224,7 +242,7 @@ class MLP_generator(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 1024),
             nn.ReLU(),
-            nn.Linear(1024, 3*28*28),
+            nn.Linear(1024, 3 * 28 * 28),
             nn.ReLU()
         )
         self.final_activation = nn.Tanh()

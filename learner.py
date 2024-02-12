@@ -103,7 +103,7 @@ class Learner(object):
         self.num_classes = attr_dims[0]
         self.train_dataset = IdxDataset(self.train_dataset)
 
-        # # JYH: Reproducibility for dataloader
+        # JYH: Reproducibility for dataloader
         # def seed_worker(worker_id):
         #     worker_seed = torch.initial_seed() % 2 ** 32
         #     np.random.seed(worker_seed)
@@ -791,9 +791,9 @@ class Learner(object):
             self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
             # JYH: Create two debiasing global workspaces
             self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7).to(self.device)
             self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7).to(self.device)
         else:
             if self.args.use_resnet20:  # Use this option only for comparing with LfF
                 self.model_l = get_model('ResNet20_OURS', self.num_classes).to(self.device)

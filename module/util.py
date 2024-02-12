@@ -7,7 +7,7 @@ from torchvision.models import resnet18, resnet50
 from .model_util import MiniCCTQSA, MLP_generator
 
 
-def get_model(model_tag, num_classes, embedding_dim=32, n_concepts=20, num_iterations=3):
+def get_model(model_tag, num_classes, in_feature=7, embedding_dim=32, n_concepts=20, num_iterations=3):
     if model_tag == "ResNet20":
         return resnet20(num_classes)
     elif model_tag == "ResNet20_OURS":
@@ -30,7 +30,7 @@ def get_model(model_tag, num_classes, embedding_dim=32, n_concepts=20, num_itera
         return model
     # JYH: Add CCT
     elif model_tag == 'global_workspace':
-        return MiniCCTQSA(embedding_dim=embedding_dim, n_spatial_concepts=n_concepts, num_iterations=num_iterations)
+        return MiniCCTQSA(embedding_dim=embedding_dim, n_spatial_concepts=n_concepts, num_iterations=num_iterations, in_feature=in_feature)
     elif model_tag == 'autoregressor':
         return MLP_generator(in_feature=2*embedding_dim)
     else:
