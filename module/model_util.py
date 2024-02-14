@@ -10,6 +10,7 @@ class MiniCCTQSA(nn.Module):
             self,
             in_feature=7,
             embedding_dim=768,
+            latent_dim=768,
             num_heads=2,
             attention_dropout=0.1,
             n_spatial_concepts=10,
@@ -21,32 +22,32 @@ class MiniCCTQSA(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.n_spatial_concepts = n_spatial_concepts
-        self.spatial_concept_slots_init = nn.Embedding(self.n_spatial_concepts, embedding_dim)
+        self.spatial_concept_slots_init = nn.Embedding(self.n_spatial_concepts, latent_dim)
         nn.init.xavier_uniform_(self.spatial_concept_slots_init.weight)
 
         # Encoder
         self.in_feature = in_feature
         self.encoder = nn.Sequential(
-            nn.Linear(embedding_dim, in_feature * in_feature * embedding_dim),
-            nn.LayerNorm(in_feature * in_feature * embedding_dim)
+            nn.Linear(embedding_dim, in_feature * in_feature * latent_dim),
+            nn.LayerNorm(in_feature * in_feature * latent_dim)
 
         )
 
         # Workspace
         self.spatial_concept_slot_attention = ConceptQuerySlotAttention(num_iterations=num_iterations,
-                                                                        slot_size=embedding_dim,
-                                                                        mlp_hidden_size=embedding_dim)
-        self.spatial_concept_slot_pos = nn.Parameter(torch.zeros(1, 1, n_spatial_concepts * embedding_dim),
+                                                                        slot_size=latent_dim,
+                                                                        mlp_hidden_size=latent_dim)
+        self.spatial_concept_slot_pos = nn.Parameter(torch.zeros(1, 1, n_spatial_concepts * latent_dim),
                                                      requires_grad=True)
         self.spatial_concept_tranformer = CrossAttentionEmbedding(
-            dim=embedding_dim,
+            dim=latent_dim,
             num_heads=num_heads,
             attention_dropout=attention_dropout,
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(in_feature * in_feature * embedding_dim, embedding_dim),
+            nn.Linear(in_feature * in_feature * latent_dim, embedding_dim),
             nn.LayerNorm(embedding_dim)
         )
 
