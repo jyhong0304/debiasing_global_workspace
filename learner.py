@@ -791,9 +791,9 @@ class Learner(object):
             self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
             # JYH: Create two debiasing global workspaces
             self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters, in_feature=7, latent_dim=32).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(self.device)
             self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters, in_feature=7, latent_dim=32).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(self.device)
         else:
             if self.args.use_resnet20:  # Use this option only for comparing with LfF
                 self.model_l = get_model('ResNet20_OURS', self.num_classes).to(self.device)
@@ -804,9 +804,9 @@ class Learner(object):
                 self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
                 # JYH: Create two debiasing global workspaces
                 self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                            num_iterations=args.n_iters, in_feature=14, latent_dim=128).to(self.device)
+                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(self.device)
                 self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                            num_iterations=args.n_iters, in_feature=14, latent_dim=128).to(self.device)
+                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(self.device)
 
         self.optimizer_l = torch.optim.Adam(
             self.model_l.parameters(),

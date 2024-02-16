@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 # JYH: By referring -
 # https://openaccess.thecvf.com/content/WACV2024/html/Hong_Concept-Centric_Transformers_Enhancing_Model_Interpretability_Through_Object-Centric_Concept_Learning_Within_WACV_2024_paper.html
-class MiniCCTQSA(nn.Module):
+class GlobalWorkspaceModel(nn.Module):
     def __init__(
             self,
             in_feature=7,
@@ -27,18 +27,13 @@ class MiniCCTQSA(nn.Module):
 
         # Encoder
         self.in_feature = in_feature
-        self.encoder = nn.Sequential(
-            nn.Linear(embedding_dim, in_feature * in_feature * latent_dim),
-            nn.LayerNorm(in_feature * in_feature * latent_dim)
-
-        )
+        self.encoder = nn.Linear(embedding_dim, in_feature * in_feature * latent_dim)
+        self.encoder_norm = nn.LayerNorm(latent_dim)
 
         # Workspace
         self.spatial_concept_slot_attention = ConceptQuerySlotAttention(num_iterations=num_iterations,
                                                                         slot_size=latent_dim,
                                                                         mlp_hidden_size=latent_dim)
-        self.spatial_concept_slot_pos = nn.Parameter(torch.zeros(1, 1, n_spatial_concepts * latent_dim),
-                                                     requires_grad=True)
         self.spatial_concept_tranformer = CrossAttentionEmbedding(
             dim=latent_dim,
             num_heads=num_heads,
@@ -46,30 +41,30 @@ class MiniCCTQSA(nn.Module):
         )
 
         # Decoder
-        self.decoder = nn.Sequential(
-            nn.Linear(in_feature * in_feature * latent_dim, embedding_dim),
-            nn.LayerNorm(embedding_dim)
-        )
+        self.decoder = nn.Linear(in_feature * in_feature * latent_dim, embedding_dim)
+        self.decoder_norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, x, sigma=0):
         if x.dim() < 3:  # this module requires the tensor with the dim_size = 3.
             x = torch.unsqueeze(x, 1)
 
         # Encoding
-        x = self.encoder(x).reshape(x.shape[0], self.in_feature * self.in_feature, -1)  # [B, in_feature*in_feature, D]
+        x = self.encoder(x).reshape(x.shape[0], self.in_feature * self.in_feature, -1)  # [B, in_feature*in_feature, embedding_dim]
+        x = self.encoder_norm(x)
         # Global workspace
         mu = self.spatial_concept_slots_init.weight.expand(x.size(0), -1, -1)
         z = torch.randn_like(mu).type_as(x)
         spatial_concept_slots_init = mu + z * sigma * mu.detach()
         spatial_concepts, _ = self.spatial_concept_slot_attention(x,
-                                                                  spatial_concept_slots_init)  # [B, num_concepts, embedding_dim]
+                                                                  spatial_concept_slots_init)  # [B, num_concepts, latent_dim]
         x, spatial_concept_attn = self.spatial_concept_tranformer(x, spatial_concepts)
         spatial_concept_attn = spatial_concept_attn.mean(1)  # average over heads
-        # x: [B, in_feature*in_feature, D]
+        # x: [B, in_feature*in_feature * latent_dim]
         # attn: [B, in_feature*in_feature, n_concepts]
         # Decoding
         x = torch.flatten(x, start_dim=1)
         x = self.decoder(x)
+        x = self.decoder_norm(x)
 
         return x, spatial_concept_attn
 

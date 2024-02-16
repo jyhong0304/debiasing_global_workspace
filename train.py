@@ -55,9 +55,9 @@ if __name__ == '__main__':
     parser.add_argument("--n_iters", help='number of iterations for slots', default=3, type=int)
     parser.add_argument("--lr_cct", help="learning rate for CCT", type=float, default=1e-3)
     parser.add_argument("--lambda_ent", help="hyperparam for entropy", type=float, default=0.1)
+    parser.add_argument("--dim_slots", help='dim for slots', default=64, type=int)
     # Generator
     parser.add_argument("--dgw_generator_training", action="store_true", help="whether to train dgw generator")
-
     parser.add_argument("--pretrained_path", help="path for pretrained model", type=str)
 
     args = parser.parse_args()
