@@ -13,6 +13,22 @@ from module.loss import GeneralizedCELoss
 from module.util import get_model
 from util import EMA
 
+from trainer import Trainer as mnistTrainer
+from logger import PythonLogger
+from models import SimpleConvNet, ReBiasModels
+from evaluator import MNISTEvaluator
+
+class MNISTTrainer(mnistTrainer):
+    def _set_models(self):
+        if not self.options.f_config:
+            self.options.f_config = {'kernel_size': 7, 'feature_pos': 'post'}
+            self.options.g_config = {'kernel_size': 1, 'feature_pos': 'post'}
+
+        f_net = SimpleConvNet(**self.options.f_config)
+        g_nets = [SimpleConvNet(**self.options.g_config) for _ in range(self.options.n_g_nets)]
+
+        self.model = ReBiasModels(f_net, g_nets)
+        self.evaluator = MNISTEvaluator(device=self.device)
 
 class Learner(object):
     def __init__(self, args):
@@ -22,7 +38,7 @@ class Learner(object):
 
         data2batch_size = {'cmnist': 256,
                            'cifar10c': 256,
-                           'bffhq': 64}
+                           'bffhq': 32}
 
         data2preprocess = {'cmnist': None,
                            'cifar10c': True,
@@ -1004,6 +1020,88 @@ class Learner(object):
                 print(f'finished epoch: {epoch}')
                 epoch += 1
                 cnt = 0
+
+
+    def train_reBais(self, args):
+
+        #batch_size=256
+        #train_correlation=0.999
+        #n_confusing_labels=9
+        # optimizer config
+        lr=args.lr
+        optim='Adam'
+        n_epochs=80
+        lr_step_size=20
+        n_f_pretrain_epochs=0
+        n_g_pretrain_epochs=0
+        f_lambda_outer=1
+        g_lambda_inner=1
+        n_g_update=1
+        update_g_cls=True
+
+        # criterion config
+        outer_criterion='RbfHSIC'
+        inner_criterion='MinusRbfHSIC'
+        rbf_sigma_scale_x=1
+        rbf_sigma_scale_y=1
+        rbf_sigma_x=1
+        rbf_sigma_y=1
+        update_sigma_per_epoch=False
+        hsic_alg='unbiased'
+        feature_pos='post'
+        # model configs
+        n_g_nets=1
+        f_kernel_size=7
+        g_kernel_size=1
+        # others
+        save_dir='./checkpoints'
+
+        logger = PythonLogger()
+
+        engine = MNISTTrainer(
+        outer_criterion=outer_criterion,
+        inner_criterion=inner_criterion,
+        outer_criterion_config={'sigma_x': rbf_sigma_x, 'sigma_y': rbf_sigma_y,
+                                'algorithm': hsic_alg},
+        outer_criterion_detail={'sigma_x_type': rbf_sigma_x,
+                                'sigma_y_type': rbf_sigma_y,
+                                'sigma_x_scale': rbf_sigma_scale_x,
+                                'sigma_y_scale': rbf_sigma_scale_y},
+        inner_criterion_config={'sigma_x': rbf_sigma_x, 'sigma_y': rbf_sigma_y,
+                                'algorithm': hsic_alg},
+        inner_criterion_detail={'sigma_x_type': rbf_sigma_x,
+                                'sigma_y_type': rbf_sigma_y,
+                                'sigma_x_scale': rbf_sigma_scale_x,
+                                'sigma_y_scale': rbf_sigma_scale_y},
+        n_epochs=n_epochs,
+        n_f_pretrain_epochs=n_f_pretrain_epochs,
+        n_g_pretrain_epochs=n_g_pretrain_epochs,
+        f_config={'num_classes': 10, 'kernel_size': f_kernel_size, 'feature_pos': feature_pos},
+        g_config={'num_classes': 10, 'kernel_size': g_kernel_size, 'feature_pos': feature_pos},
+        f_lambda_outer=f_lambda_outer,
+        g_lambda_inner=g_lambda_inner,
+        n_g_update=n_g_update,
+        update_g_cls=update_g_cls,
+        n_g_nets=n_g_nets,
+        optimizer=optim,
+        f_optim_config={'lr': lr, 'weight_decay': 1e-4},
+        g_optim_config={'lr': lr, 'weight_decay': 1e-4},
+        scheduler='StepLR',
+        f_scheduler_config={'step_size': lr_step_size},
+        g_scheduler_config={'step_size': lr_step_size},
+        train_loader=self.train_loader,
+        log_step=100,
+        logger=logger)
+
+        val_loaders = {}
+        val_loaders['val'] = self.valid_loader
+        val_loaders['test'] = self.test_loader
+
+        engine.train(self.train_loader, val_loaders=val_loaders,
+                 val_epoch_step=1,
+                 update_sigma_per_epoch=update_sigma_per_epoch,
+                 save_dir=save_dir)
+        
 
     def test_lfa(self, args):
         if args.dataset == 'cmnist':
