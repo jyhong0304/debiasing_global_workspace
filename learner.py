@@ -12,8 +12,6 @@ from data.util import get_dataset, IdxDataset
 from module.loss import GeneralizedCELoss
 from module.util import get_model
 from util import EMA
-import random
-import torchvision.utils as vutils
 
 
 class Learner(object):
@@ -34,7 +32,8 @@ class Learner(object):
 
         if args.wandb:
             import wandb
-            wandb.init(project='Debiasing-Global-Workspace', name=args.exp if not args.dgw_generator_training else args.exp + '_dgw_generator')
+            wandb.init(project='Debiasing-Global-Workspace',
+                       name=args.exp if not args.dgw_generator_training else args.exp + '_dgw_generator')
             wandb.run.name = args.exp
 
         run_name = args.exp
@@ -103,7 +102,7 @@ class Learner(object):
         self.num_classes = attr_dims[0]
         self.train_dataset = IdxDataset(self.train_dataset)
 
-        # JYH: Reproducibility for dataloader
+        # # JYH: Reproducibility for dataloader
         # def seed_worker(worker_id):
         #     worker_seed = torch.initial_seed() % 2 ** 32
         #     np.random.seed(worker_seed)
@@ -283,9 +282,9 @@ class Learner(object):
                     hook_fn.remove()
                     z_b = z_b[0]
                 z_origin = torch.cat((z_l, z_b), dim=1)
-                if model == 'bias':  # Todo: Original Bias in Table 4 in LFA paper?
+                if model == 'bias':
                     pred_label = model_b.fc(z_origin)
-                else:   # Todo: Original Intrinsic in Table 4 in LFA paper?
+                else:
                     pred_label = model_l.fc(z_origin)
                 pred = pred_label.data.max(1, keepdim=True)[1].squeeze(1)
                 correct = (pred == label).long()
@@ -791,9 +790,11 @@ class Learner(object):
             self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
             # JYH: Create two debiasing global workspaces
             self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(
+                self.device)
             self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(self.device)
+                                        num_iterations=args.n_iters, in_feature=7, latent_dim=args.dim_slots).to(
+                self.device)
         else:
             if self.args.use_resnet20:  # Use this option only for comparing with LfF
                 self.model_l = get_model('ResNet20_OURS', self.num_classes).to(self.device)
@@ -804,9 +805,11 @@ class Learner(object):
                 self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
                 # JYH: Create two debiasing global workspaces
                 self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(self.device)
+                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(
+                    self.device)
                 self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(self.device)
+                                            num_iterations=args.n_iters, in_feature=14, latent_dim=args.dim_slots).to(
+                    self.device)
 
         self.optimizer_l = torch.optim.Adam(
             self.model_l.parameters(),
@@ -915,7 +918,6 @@ class Learner(object):
             ratio = np.random.beta(args.rep_alpha, args.rep_alpha, 1)[0]
             # z_align = args.rep_alpha * z_align + (1 - args.rep_alpha) * slot_z_align.squeeze(1)
             z_align = ratio * z_align + (1 - ratio) * slot_z_align.squeeze(1)
-
 
             # Prediction using z=[z_l, z_b]
             pred_conflict = self.model_l.fc(z_conflict)
@@ -1050,92 +1052,92 @@ class Learner(object):
                 epoch += 1
                 cnt = 0
 
-    def train_dgw_reconstruction(self, args):
-
-        # folde setting
-        self.img_save_dir = os.path.join(self.log_dir, "dgw_recon_images")
-        os.makedirs(self.img_save_dir, exist_ok=True)
-
-        # Train
-        self.model_generator.train()
-
-        # Load model_l, model_b, and model_gw_1 and 2
-        if args.dataset == 'cmnist':
-            self.model_l = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
-            self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
-            self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
-            self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
-        else:
-            self.model_l = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
-            self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
-            self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
-            self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
-                                        num_iterations=args.n_iters).to(self.device)
-
-        self.model_l.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_l.th'))['state_dict'])
-        self.model_b.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_b.th'))['state_dict'])
-        self.model_gw_1.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_1.th'))['state_dict'])
-        self.model_gw_2.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_2.th'))['state_dict'])
-        print('Loading the pretrained models done.')
-
-        # Eval Mode
-        self.model_l.eval()
-        self.model_b.eval()
-        self.model_gw_1.eval()
-        self.model_gw_2.eval()
-
-        for step in tqdm(range(args.num_steps)):
-            try:
-                index, data, attr, image_path = next(train_iter)
-            except:  # check lfa is also in this except
-                train_iter = iter(self.train_loader)
-                index, data, attr, image_path = next(train_iter)
-
-            data = data.to(self.device)
-            attr = attr.to(self.device)
-            label = attr[:, args.target_attr_idx].to(self.device)
-
-            # Assuming model_l and model_b return the required 16 channel output directly
-            with torch.no_grad():  # Ensure gradients are not calculated for model_l and model_b
-                output_l = self.model_l.extract(data).detach()  # Detach to prevent gradients from flowing back
-                output_b = self.model_b.extract(data).detach()
-
-            # Concatenate the outputs to form the 32 channel input for the generator
-            gen_input = torch.cat((output_l, output_b), dim=1)
-            # Global workspace 1 learns to decompose output_l
-            slot_output_l, attn_output_l = self.model_gw_1(gen_input)
-            slot_output_b, attn_output_b = self.model_gw_2(gen_input)
-            slot_output = torch.flatten(torch.cat((slot_output_l, slot_output_b), dim=1), start_dim=1)
-
-            self.optimizer_generator.zero_grad()
-            gen_output = self.model_generator(slot_output)
-            target = data.view_as(gen_output)
-            loss = self.dgw_generator_criterion(gen_output, target)  # Define your target accordingly
-            loss.backward()
-            self.optimizer_generator.step()
-            # Log loss to wandb
-            wandb.log({"Generator Loss": loss.item()}, step=step)
-
-            if step % 100 == 0:  # Save sample images every 100 steps
-                # Concatenate original data and generated data
-                gen_output = gen_output.view(-1, 3, 28, 28)  # reshape
-                combined_images = torch.cat((data[:8], gen_output[:8]), dim=0)  # Taking 8 samples for visualization
-                # Make a grid with the first row being original images and the second row being generated images
-                image_grid = vutils.make_grid(combined_images, normalize=True, value_range=(0, 1), scale_each=True,
-                                              nrow=8, padding=2)
-                # Save the grid to a file
-                vutils.save_image(image_grid, os.path.join(self.img_save_dir, f"sample_images_step_{step}.png"))
-                wandb.log({"Generated Images": [wandb.Image(image_grid, caption=f"Step {step}")]}, step=step)
-
-            if step % 5_000 == 0:
-                torch.save(self.model_generator.state_dict(),
-                           os.path.join(self.result_dir, f"generator_step_{step}.th"))
-
-        # save final version
-        torch.save(self.model_generator.state_dict(), os.path.join(self.result_dir, f"generator_step_{step}.th"))
+    # def train_dgw_reconstruction(self, args):
+    #
+    #     # folde setting
+    #     self.img_save_dir = os.path.join(self.log_dir, "dgw_recon_images")
+    #     os.makedirs(self.img_save_dir, exist_ok=True)
+    #
+    #     # Train
+    #     self.model_generator.train()
+    #
+    #     # Load model_l, model_b, and model_gw_1 and 2
+    #     if args.dataset == 'cmnist':
+    #         self.model_l = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+    #         self.model_b = get_model('mlp_DISENTANGLE', self.num_classes).to(self.device)
+    #         self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
+    #                                     num_iterations=args.n_iters).to(self.device)
+    #         self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=32, n_concepts=args.n_concepts,
+    #                                     num_iterations=args.n_iters).to(self.device)
+    #     else:
+    #         self.model_l = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+    #         self.model_b = get_model('resnet_DISENTANGLE', self.num_classes).to(self.device)
+    #         self.model_gw_1 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
+    #                                     num_iterations=args.n_iters).to(self.device)
+    #         self.model_gw_2 = get_model("global_workspace", 0, embedding_dim=1024, n_concepts=args.n_concepts,
+    #                                     num_iterations=args.n_iters).to(self.device)
+    #
+    #     self.model_l.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_l.th'))['state_dict'])
+    #     self.model_b.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_b.th'))['state_dict'])
+    #     self.model_gw_1.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_1.th'))['state_dict'])
+    #     self.model_gw_2.load_state_dict(torch.load(os.path.join(args.pretrained_path, 'best_model_gw_2.th'))['state_dict'])
+    #     print('Loading the pretrained models done.')
+    #
+    #     # Eval Mode
+    #     self.model_l.eval()
+    #     self.model_b.eval()
+    #     self.model_gw_1.eval()
+    #     self.model_gw_2.eval()
+    #
+    #     for step in tqdm(range(args.num_steps)):
+    #         try:
+    #             index, data, attr, image_path = next(train_iter)
+    #         except:  # check lfa is also in this except
+    #             train_iter = iter(self.train_loader)
+    #             index, data, attr, image_path = next(train_iter)
+    #
+    #         data = data.to(self.device)
+    #         attr = attr.to(self.device)
+    #         label = attr[:, args.target_attr_idx].to(self.device)
+    #
+    #         # Assuming model_l and model_b return the required 16 channel output directly
+    #         with torch.no_grad():  # Ensure gradients are not calculated for model_l and model_b
+    #             output_l = self.model_l.extract(data).detach()  # Detach to prevent gradients from flowing back
+    #             output_b = self.model_b.extract(data).detach()
+    #
+    #         # Concatenate the outputs to form the 32 channel input for the generator
+    #         gen_input = torch.cat((output_l, output_b), dim=1)
+    #         # Global workspace 1 learns to decompose output_l
+    #         slot_output_l, attn_output_l = self.model_gw_1(gen_input)
+    #         slot_output_b, attn_output_b = self.model_gw_2(gen_input)
+    #         slot_output = torch.flatten(torch.cat((slot_output_l, slot_output_b), dim=1), start_dim=1)
+    #
+    #         self.optimizer_generator.zero_grad()
+    #         gen_output = self.model_generator(slot_output)
+    #         target = data.view_as(gen_output)
+    #         loss = self.dgw_generator_criterion(gen_output, target)  # Define your target accordingly
+    #         loss.backward()
+    #         self.optimizer_generator.step()
+    #         # Log loss to wandb
+    #         wandb.log({"Generator Loss": loss.item()}, step=step)
+    #
+    #         if step % 100 == 0:  # Save sample images every 100 steps
+    #             # Concatenate original data and generated data
+    #             gen_output = gen_output.view(-1, 3, 28, 28)  # reshape
+    #             combined_images = torch.cat((data[:8], gen_output[:8]), dim=0)  # Taking 8 samples for visualization
+    #             # Make a grid with the first row being original images and the second row being generated images
+    #             image_grid = vutils.make_grid(combined_images, normalize=True, value_range=(0, 1), scale_each=True,
+    #                                           nrow=8, padding=2)
+    #             # Save the grid to a file
+    #             vutils.save_image(image_grid, os.path.join(self.img_save_dir, f"sample_images_step_{step}.png"))
+    #             wandb.log({"Generated Images": [wandb.Image(image_grid, caption=f"Step {step}")]}, step=step)
+    #
+    #         if step % 5_000 == 0:
+    #             torch.save(self.model_generator.state_dict(),
+    #                        os.path.join(self.result_dir, f"generator_step_{step}.th"))
+    #
+    #     # save final version
+    #     torch.save(self.model_generator.state_dict(), os.path.join(self.result_dir, f"generator_step_{step}.th"))
 
     def test_lfa(self, args):
         if args.dataset == 'cmnist':

@@ -56,9 +56,9 @@ if __name__ == '__main__':
     parser.add_argument("--lr_cct", help="learning rate for CCT", type=float, default=1e-3)
     parser.add_argument("--lambda_ent", help="hyperparam for entropy", type=float, default=0.1)
     parser.add_argument("--dim_slots", help='dim for slots', default=64, type=int)
-    # Generator
-    parser.add_argument("--dgw_generator_training", action="store_true", help="whether to train dgw generator")
-    parser.add_argument("--pretrained_path", help="path for pretrained model", type=str)
+    # # Generator
+    # parser.add_argument("--dgw_generator_training", action="store_true", help="whether to train dgw generator")
+    # parser.add_argument("--pretrained_path", help="path for pretrained model", type=str)
 
     args = parser.parse_args()
 
@@ -85,8 +85,8 @@ if __name__ == '__main__':
     # JYH: for training Debiasing GW.
     elif args.train_dgw:
         learner.train_dgw(args)
-    elif args.dgw_generator_training:   # Train geneartor for dgw.
-        learner.train_dgw_reconstruction(args)
+    # elif args.dgw_generator_training:   # Train geneartor for dgw.
+    #     learner.train_dgw_reconstruction(args)
     else:
         print('choose one of the three options ... (Vanilla, LFA, DGW)')
         import sys
