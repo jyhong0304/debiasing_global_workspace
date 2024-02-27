@@ -1373,7 +1373,6 @@ class Learner(object):
     #             self.save_dgws(step)
     #
     #         if step % args.log_freq == 0:
-    #             # Todo: bias_label is here.
     #             bias_label = attr[:, 1]
     #             align_flag = torch.where(label == bias_label)[0]
     #             self.board_lfa_loss(
