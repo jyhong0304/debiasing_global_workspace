@@ -2,8 +2,7 @@
 
 import os
 import torch
-from torch import nn
-from torch.utils.data.dataset import Dataset, Subset
+from torch.utils.data.dataset import Dataset
 from torchvision import transforms as T
 from glob import glob
 from PIL import Image
@@ -283,12 +282,12 @@ def get_dataset(dataset, data_dir, dataset_split, transform_split, percent, use_
         dataset = CMNISTDataset(root=root, split=dataset_split, transform=transform, image_path_list=image_path_list)
 
     elif 'cifar10c' in dataset:
-        # if use_type0:
-        #     root = data_dir + f"/cifar10c_0805_type0/{percent}"
-        # elif use_type1:
-        #     root = data_dir + f"/cifar10c_0805_type1/{percent}"
-        # else:
-        root = data_dir + f"/cifar10c/{percent}"
+        if use_type0:
+            root = data_dir + f"/cifar10c_0805_type0/{percent}"
+        elif use_type1:
+            root = data_dir + f"/cifar10c_0805_type1/{percent}"
+        else:
+            root = data_dir + f"/cifar10c/{percent}"
         dataset = CIFAR10Dataset(root=root, split=dataset_split, transform=transform, image_path_list=image_path_list,
                                  use_type0=use_type0, use_type1=use_type1)
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# JYH: By referring -
+# By referring -
 # https://openaccess.thecvf.com/content/WACV2024/html/Hong_Concept-Centric_Transformers_Enhancing_Model_Interpretability_Through_Object-Centric_Concept_Learning_Within_WACV_2024_paper.html
 class GlobalWorkspaceModel(nn.Module):
     def __init__(
@@ -49,7 +49,8 @@ class GlobalWorkspaceModel(nn.Module):
             x = torch.unsqueeze(x, 1)
 
         # Encoding
-        x = self.encoder(x).reshape(x.shape[0], self.in_feature * self.in_feature, -1)  # [B, in_feature*in_feature, embedding_dim]
+        x = self.encoder(x).reshape(x.shape[0], self.in_feature * self.in_feature,
+                                    -1)  # [B, in_feature*in_feature, embedding_dim]
         x = self.encoder_norm(x)
         # Global workspace
         mu = self.spatial_concept_slots_init.weight.expand(x.size(0), -1, -1)
@@ -235,24 +236,3 @@ def gru_cell(input_size, hidden_size, bias=True):
         nn.init.zeros_(m.bias_hh)
 
     return m
-
-
-class MLP_generator(nn.Module):
-    def __init__(self, in_feature):
-        super(MLP_generator, self).__init__()
-        self.decoder = nn.Sequential(
-            nn.Linear(in_feature, 512),
-            nn.ReLU(),
-            nn.Linear(512, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 3 * 28 * 28),
-            nn.ReLU()
-        )
-        self.final_activation = nn.Tanh()
-
-    def forward(self, x):
-        x = self.decoder(x)
-        x = self.final_activation(x)
-        # Optionally, you can reshape the output to (Batch, Channels, Height, Width)
-        # x = x.view(-1, 3, 28, 28)
-        return x

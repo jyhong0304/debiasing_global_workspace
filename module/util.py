@@ -3,8 +3,8 @@
 from torch import nn
 from module.resnet import resnet20
 from module.mlp import *
-from torchvision.models import resnet18, resnet50
-from .model_util import GlobalWorkspaceModel, MLP_generator
+from torchvision.models import resnet18
+from .model_util import GlobalWorkspaceModel
 
 
 def get_model(model_tag, num_classes, in_feature=7, embedding_dim=32, latent_dim=32, n_concepts=20, num_iterations=3):
@@ -28,10 +28,8 @@ def get_model(model_tag, num_classes, in_feature=7, embedding_dim=32, latent_dim
         model = resnet18(pretrained=False)
         model.fc = nn.Linear(1024, num_classes)
         return model
-    # JYH: Add CCT
+    # Add global workspace model
     elif model_tag == 'global_workspace':
         return GlobalWorkspaceModel(embedding_dim=embedding_dim, n_spatial_concepts=n_concepts, num_iterations=num_iterations, in_feature=in_feature, latent_dim=latent_dim)
-    elif model_tag == 'autoregressor':
-        return MLP_generator(in_feature=2*embedding_dim)
     else:
         raise NotImplementedError

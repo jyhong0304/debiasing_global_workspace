@@ -6,9 +6,9 @@ import argparse
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Learning Decomposable Representation within a Debiasing Global Workspace')
+        description='Learning Decomposable and Debiased Representations via Attribute-Centric Information Bottlenecks')
 
-    # training
+    # For training
     parser.add_argument("--batch_size", help="batch_size", default=256, type=int)
     parser.add_argument("--lr", help='learning rate', default=1e-3, type=float)
     parser.add_argument("--weight_decay", help='weight_decay', default=0.0, type=float)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         action="store_true")  # ResNet 20 was used in Learning From Failure CifarC10 (We used ResNet18 in our paper)
     parser.add_argument("--model", help="which network, [MLP, ResNet18, ResNet20, ResNet50]", default='MLP', type=str)
 
-    # logging
+    # For logging
     parser.add_argument("--log_dir", help='path for saving model', default='./log', type=str)
     parser.add_argument("--data_dir", help='path for loading data', default='dataset', type=str)
     parser.add_argument("--valid_freq", help='frequency to evaluate on valid/test set', default=500, type=int)
@@ -44,12 +44,11 @@ if __name__ == '__main__':
     parser.add_argument("--save_freq", help='frequency to save model checkpoint', default=1000, type=int)
     parser.add_argument("--wandb", action="store_true", help="whether to use wandb")
     parser.add_argument("--tensorboard", action="store_true", help="whether to use tensorboard")
-    # experiment
+    # For experiment
     parser.add_argument("--train_vanilla", action="store_true", help="whether to train vanilla")
     parser.add_argument("--train_lfa", action="store_true", help="whether to train LFA method (NeurIPS21)")
-    # JYH: Add new arguments
+    # For arguments of DGW
     parser.add_argument("--train_dgw", action="store_true", help="whether to train Debiasing Global Workspace (Ours)")
-    # parser.add_argument("--train_dgws", action="store_true", help="whether to train Single Debiasing Global Workspace (Ours)")
     parser.add_argument("--rep_alpha", help="the ratio of representations using GWS", type=float, default=0.7)
     parser.add_argument('--seed', default=1, type=int, help='random seed')
     parser.add_argument("--n_concepts", help='number of concepts', default=10, type=int)
@@ -57,9 +56,6 @@ if __name__ == '__main__':
     parser.add_argument("--lr_cct", help="learning rate for CCT", type=float, default=1e-3)
     parser.add_argument("--lambda_ent", help="hyperparam for entropy", type=float, default=0.1)
     parser.add_argument("--dim_slots", help='dim for slots', default=64, type=int)
-    # # Generator
-    # parser.add_argument("--dgw_generator_training", action="store_true", help="whether to train dgw generator")
-    # parser.add_argument("--pretrained_path", help="path for pretrained model", type=str)
 
     args = parser.parse_args()
 
@@ -71,25 +67,23 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    # init learner
+    # Initialize learner.
     learner = Learner(args)
 
-    # actual training
+    # Perform actual training
     print(
-        'Official Pytorch Code of "Learning Decomposable Representation within a Debiasing Global Workspace"')
+        'Official Pytorch Code of "Learning Decomposable and Debiased Representations via Attribute-Centric Information Bottlenecks"')
     print('Training starts ...')
 
+    # For training LFA.
     if args.train_lfa:
         learner.train_lfa(args)
+    # For training Vanilla.
     elif args.train_vanilla:
         learner.train_vanilla(args)
-    # JYH: for training Debiasing GW.
+    # For training Debiasing Global Workspace (ours).
     elif args.train_dgw:
         learner.train_dgw(args)
-    # elif args.dgw_generator_training:   # Train geneartor for dgw.
-    #     learner.train_dgw_reconstruction(args)
-    # elif args.train_dgws:
-    #     learner.train_dgws(args)
     else:
         print('choose one of the three options ... (Vanilla, LFA, DGW)')
         import sys
