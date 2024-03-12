@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', default=1, type=int, help='random seed')
     parser.add_argument("--n_concepts", help='number of concepts', default=10, type=int)
     parser.add_argument("--n_iters", help='number of iterations for slots', default=3, type=int)
-    parser.add_argument("--lr_cct", help="learning rate for CCT", type=float, default=1e-3)
+    parser.add_argument("--lr_cct", help="learning rate for DGW module", type=float, default=1e-3)
     parser.add_argument("--lambda_ent", help="hyperparam for entropy", type=float, default=0.1)
     parser.add_argument("--dim_slots", help='dim for slots', default=64, type=int)
 
