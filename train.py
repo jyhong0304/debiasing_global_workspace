@@ -51,6 +51,8 @@ if __name__ == '__main__':
     parser.add_argument("--train_dgw", action="store_true", help="whether to train Debiasing Global Workspace (Ours)")
     # UN: Added new argument
     parser.add_argument("--train_rebias", action="store_true", help="whether to train ReBias")
+    parser.add_argument("--train_lff", action="store_true", help="whether to train lfF")    
+
     parser.add_argument("--rep_alpha", help="the ratio of representations using GWS", type=float, default=0.7)
     parser.add_argument('--seed', default=1, type=int, help='random seed')
     parser.add_argument("--n_concepts", help='number of concepts', default=10, type=int)
@@ -85,6 +87,8 @@ if __name__ == '__main__':
         learner.train_dgw(args)
     elif args.train_rebias:
         learner.train_reBais(args)
+    elif args.train_lff:
+        learner.train_lff(args)
     else:
         print('choose one of the three options ... (Vanilla, LFA, DGW)')
         import sys

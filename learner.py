@@ -11,11 +11,11 @@ import torch.optim as optim
 from data.util import get_dataset, IdxDataset
 from module.loss import GeneralizedCELoss
 from module.util import get_model
-from util import EMA
+from util import EMA, EMA_LFF, MultiDimAverageMeter
 
 from trainer import Trainer as mnistTrainer
 from logger import PythonLogger
-from models import SimpleConvNet, ReBiasModels
+from models import SimpleConvNet, resnet18, ReBiasModels
 from evaluator import MNISTEvaluator
 
 class MNISTTrainer(mnistTrainer):
@@ -24,8 +24,12 @@ class MNISTTrainer(mnistTrainer):
             self.options.f_config = {'kernel_size': 7, 'feature_pos': 'post'}
             self.options.g_config = {'kernel_size': 1, 'feature_pos': 'post'}
 
-        f_net = SimpleConvNet(**self.options.f_config)
-        g_nets = [SimpleConvNet(**self.options.g_config) for _ in range(self.options.n_g_nets)]
+
+        #f_net = SimpleConvNet(**self.options.f_config)
+        #g_nets = [SimpleConvNet(**self.options.g_config) for _ in range(self.options.n_g_nets)]
+
+        f_net = resnet18(**self.options.f_config)
+        g_nets = [resnet18(**self.options.g_config) for _ in range(self.options.n_g_nets)]
 
         self.model = ReBiasModels(f_net, g_nets)
         self.evaluator = MNISTEvaluator(device=self.device)
@@ -38,7 +42,7 @@ class Learner(object):
 
         data2batch_size = {'cmnist': 256,
                            'cifar10c': 256,
-                           'bffhq': 32}
+                           'bffhq': 64}
 
         data2preprocess = {'cmnist': None,
                            'cifar10c': True,
@@ -114,6 +118,7 @@ class Learner(object):
         attr_dims.append(torch.max(train_target_attr).item() + 1)
         self.num_classes = attr_dims[0]
         self.train_dataset = IdxDataset(self.train_dataset)
+        self.train_target_attr = train_target_attr
 
         # make loader
         self.train_loader = DataLoader(
@@ -1030,7 +1035,7 @@ class Learner(object):
         # optimizer config
         lr=args.lr
         optim='Adam'
-        n_epochs=80
+        n_epochs=35
         lr_step_size=20
         n_f_pretrain_epochs=0
         n_g_pretrain_epochs=0
@@ -1076,8 +1081,11 @@ class Learner(object):
         n_epochs=n_epochs,
         n_f_pretrain_epochs=n_f_pretrain_epochs,
         n_g_pretrain_epochs=n_g_pretrain_epochs,
-        f_config={'num_classes': 10, 'kernel_size': f_kernel_size, 'feature_pos': feature_pos},
-        g_config={'num_classes': 10, 'kernel_size': g_kernel_size, 'feature_pos': feature_pos},
+        #f_config={'num_classes': self.num_classes, 'kernel_size': f_kernel_size, 'feature_pos': feature_pos},
+        #g_config={'num_classes': self.num_classes, 'kernel_size': g_kernel_size, 'feature_pos': feature_pos},
+        f_config={'num_classes': self.num_classes, 'feature_pos': feature_pos},
+        g_config={'num_classes': self.num_classes, 'feature_pos': feature_pos},
+
         f_lambda_outer=f_lambda_outer,
         g_lambda_inner=g_lambda_inner,
         n_g_update=n_g_update,
@@ -1102,6 +1110,176 @@ class Learner(object):
                  update_sigma_per_epoch=update_sigma_per_epoch,
                  save_dir=save_dir)
         
+
+    def train_lff(self, args):
+        target_attr_idx = 0
+        bias_attr_idx = 1
+        main_num_steps = 10000
+        main_valid_freq = 235
+        main_batch_size = 64
+        main_optimizer_tag = 'Adam'
+        main_learning_rate = 0.0001
+        main_weight_decay = 0.0
+        model_tag = self.model
+        attr_dims = [self.num_classes, self.num_classes]
+
+        model_b = get_model(model_tag, self.num_classes).to(self.device)
+        model_d = get_model(model_tag, self.num_classes).to(self.device)
+
+        optimizer_b = torch.optim.Adam(
+            model_b.parameters(),
+            lr=main_learning_rate,
+            weight_decay=main_weight_decay,
+        )
+        optimizer_d = torch.optim.Adam(
+            model_d.parameters(),
+            lr=main_learning_rate,
+            weight_decay=main_weight_decay,
+        )
+
+        criterion = nn.CrossEntropyLoss(reduction='none')
+        bias_criterion = GeneralizedCELoss()
+
+
+        sample_loss_ema_b = EMA_LFF(torch.LongTensor(self.train_target_attr), alpha=0.7)
+        sample_loss_ema_d = EMA_LFF(torch.LongTensor(self.train_target_attr), alpha=0.7)
+
+        # define evaluation function
+        def evaluate(model, data_loader):
+            model.eval()
+            acc = []
+            
+            attrwise_acc_meter = MultiDimAverageMeter(attr_dims)
+            for data, attr, _ in tqdm(data_loader, leave=False):
+                label = attr[:, target_attr_idx]
+                data = data.to(self.device)
+                attr = attr.to(self.device)
+                label = label.to(self.device)
+                with torch.no_grad():
+                    logit = model(data)
+                    #print("logit", logit.sum())
+                    pred = logit.data.max(1, keepdim=True)[1].squeeze(1)
+                    correct = (pred == label).long()
+                    #print("correct", correct.sum()/correct.shape[0])
+                    #print(correct.shape)
+                    acc.append(correct.sum()/correct.shape[0])
+
+                attr = attr[:, [target_attr_idx, bias_attr_idx]]
+                #print("attr", attr)
+
+                attrwise_acc_meter.add(correct.cpu(), attr.cpu())
+                #print("attrwise_acc_meter", attrwise_acc_meter)
+
+            accs = attrwise_acc_meter.get_mean()
+            accs = sum(acc) / len(acc)
+            #print("accs", accs)
+            model.train()
+
+
+            return accs
+
+        # jointly training biased/de-biased model
+        valid_attrwise_accs_list = []
+        num_updated = 0
+        best_b_acc = 0
+        best_d_acc = 0
+        for step in tqdm(range(main_num_steps)):
+
+            # train main model
+            try:
+               index, data, attr, _ = next(train_iter)
+            except:
+               train_iter = iter(self.train_loader)
+               index, data, attr, _ = next(train_iter)
+
+            data = data.to(self.device)
+            attr = attr.to(self.device)
+            label = attr[:, target_attr_idx]
+            bias_label = attr[:, bias_attr_idx]
+
+            logit_b = model_b(data)
+            #print("logit_b", logit_b.sum())
+            if np.isnan(logit_b.mean().item()):
+               print(logit_b)
+               raise NameError('logit_b')
+            logit_d = model_d(data)
+            #print("logit_d", logit_d.sum())
+
+            loss_b = criterion(logit_b, label).cpu().detach()
+            loss_d = criterion(logit_d, label).cpu().detach()
+
+            if np.isnan(loss_b.mean().item()):
+               raise NameError('loss_b')
+            if np.isnan(loss_d.mean().item()):
+               raise NameError('loss_d')
+
+            loss_per_sample_b = loss_b
+            loss_per_sample_d = loss_d
+
+            # EMA sample loss
+            sample_loss_ema_b.update(loss_b, index)
+            sample_loss_ema_d.update(loss_d, index)
+
+            # class-wise normalize
+            loss_b = sample_loss_ema_b.parameter[index].clone().detach()
+            loss_d = sample_loss_ema_d.parameter[index].clone().detach()
+
+            if np.isnan(loss_b.mean().item()):
+               raise NameError('loss_b_ema')
+            if np.isnan(loss_d.mean().item()):
+               raise NameError('loss_d_ema')
+
+            label_cpu = label.cpu()
+
+            for c in range(self.num_classes):
+                class_index = np.where(label_cpu == c)[0]
+                max_loss_b = sample_loss_ema_b.max_loss(c)
+                max_loss_d = sample_loss_ema_d.max_loss(c)
+                loss_b[class_index] /= max_loss_b
+                loss_d[class_index] /= max_loss_d
+
+            # re-weighting based on loss value / generalized CE for biased model
+            loss_weight = loss_b / (loss_b + loss_d + 1e-8)
+            if np.isnan(loss_weight.mean().item()):
+               raise NameError('loss_weight')
+
+            loss_b_update = bias_criterion(logit_b, label)
+
+            if np.isnan(loss_b_update.mean().item()):
+               raise NameError('loss_b_update')
+            loss_d_update = criterion(logit_d, label) * loss_weight.to(self.device)
+            if np.isnan(loss_d_update.mean().item()):
+               raise NameError('loss_d_update')
+            loss = loss_b_update.mean() + loss_d_update.mean()
+
+            num_updated += loss_weight.mean().item() * data.size(0)
+
+            optimizer_b.zero_grad()
+            optimizer_d.zero_grad()
+            loss.backward()
+            optimizer_b.step()
+            optimizer_d.step()
+
+            main_log_freq = 10
+
+            if step % main_valid_freq == 0:
+               valid_attrwise_accs_b = evaluate(model_b, self.test_loader)
+               valid_attrwise_accs_d = evaluate(model_d, self.test_loader)
+               valid_attrwise_accs_list.append(valid_attrwise_accs_d)
+               valid_accs_b = torch.mean(valid_attrwise_accs_b)
+               print("acc/b_test", valid_accs_b)
+               valid_accs_d = torch.mean(valid_attrwise_accs_d)
+               print("acc/d_test", valid_accs_d)
+
+               if valid_accs_d > best_d_acc:
+                  best_d_acc = valid_accs_d
+               eye_tsr = torch.eye(attr_dims[0]).long()
+
+               print("best_d_acc", best_d_acc)
+
+               num_updated_avg = num_updated / main_batch_size / main_valid_freq
+               print("num_updated/all", num_updated_avg, step)
+               num_updated = 0
 
     def test_lfa(self, args):
         if args.dataset == 'cmnist':
