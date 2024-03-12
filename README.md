@@ -16,6 +16,9 @@ and generalizable representations of decomposable latent embeddings correspondin
 We conduct comprehensive evaluations on biased datasets, along with both quantitative and qualitative analyses, to
 showcase our approach's efficacy in attribute-centric representation learning and its ability to differentiate between
 intrinsic and bias-related features.
+<p float="left">
+  <img src="figs/dgw_architecture.png" alt="main_architecture_dgw" width="90%"/>
+</p>
 
 ## Requirments
 
