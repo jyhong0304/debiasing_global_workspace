@@ -1,6 +1,9 @@
 # Debiasing Global Workspace: A Cognitive Neural Framework for Learning Debiased and Interpretable Representations
 
 This is the official implementation of ***Debiasing Global Workspace (DGW)***.
+This work has been accepted to:
+- [NeurIPS 2024 Workshop on Behavioral Machine Learning](https://openreview.net/forum?id=obiwUsWlki#discussion)
+- [NeurIPS 2024 Workshop on UniReps: 2nd Edition of the Workshop on Unifying Representations in Neural Models](https://openreview.net/forum?id=obiwUsWlki#discussion)
 
 
 ## Requirments
