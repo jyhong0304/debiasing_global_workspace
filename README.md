@@ -2,7 +2,7 @@
 
 This is the official implementation of ***Debiasing Global Workspace (DGW)***.
 This work has been accepted to:
-- (Short paper) [NeurIPS 2024 Workshop on Behavioral Machine Learning](https://openreview.net/forum?id=obiwUsWlki#discussion)
+- (Short paper) [NeurIPS 2024 Workshop on Behavioral Machine Learning](https://openreview.net/forum?id=SoqFoRAofo)
 - (Full paper) [NeurIPS 2024 Workshop on UniReps: 2nd Edition of the Workshop on Unifying Representations in Neural Models](https://openreview.net/forum?id=obiwUsWlki#discussion)
 
 
